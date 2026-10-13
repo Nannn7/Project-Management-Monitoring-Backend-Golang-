@@ -1,0 +1,20 @@
+﻿# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Go build artifacts
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+# Logs
+*.log
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
