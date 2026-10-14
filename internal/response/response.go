@@ -2,7 +2,12 @@ package response
 
 import (
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
+
+	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/yourorg/pmo-agi-be/internal/apperr"
 )
 
 // --- Envelope types ---
@@ -71,28 +76,67 @@ func Error(w http.ResponseWriter, status int, code, message string) {
 func ValidationError(w http.ResponseWriter, fields map[string]string) {
 	JSON(w, http.StatusUnprocessableEntity, ErrorResponse{Error: ErrorDetail{
 		Code:    "VALIDATION_ERROR",
-		Message: "Data tidak valid.",
+		Message: "Data is not valid.",
 		Fields:  fields,
 		Details: nil,
 	}})
 }
 
 func Unauthorized(w http.ResponseWriter) {
-	Error(w, http.StatusUnauthorized, "UNAUTHENTICATED", "Token tidak valid atau sudah kadaluarsa.")
+	Error(w, http.StatusUnauthorized, "UNAUTHENTICATED", "Token is not valid or expired.")
 }
 
 func Forbidden(w http.ResponseWriter) {
-	Error(w, http.StatusForbidden, "FORBIDDEN", "Anda tidak memiliki akses.")
+	Error(w, http.StatusForbidden, "FORBIDDEN", "You don't have access.")
 }
 
 func NotFound(w http.ResponseWriter) {
-	Error(w, http.StatusNotFound, "NOT_FOUND", "Data tidak ditemukan.")
+	Error(w, http.StatusNotFound, "NOT_FOUND", "Data is not found.")
 }
 
 func InternalError(w http.ResponseWriter) {
-	Error(w, http.StatusInternalServerError, "INTERNAL", "Terjadi kesalahan pada server.")
+	Error(w, http.StatusInternalServerError, "INTERNAL", "Something went wrong on the server.")
 }
 
 func Conflict(w http.ResponseWriter, code, message string) {
 	Error(w, http.StatusConflict, code, message)
+}
+
+func statusOf(k apperr.Kind) int {
+	switch k {
+	case apperr.KindBadRequest:
+		return http.StatusBadRequest
+	case apperr.KindUnauthenticated:
+		return http.StatusUnauthorized
+	case apperr.KindForbidden:
+		return http.StatusForbidden
+	case apperr.KindNotFound:
+		return http.StatusNotFound
+	case apperr.KindDuplicate, apperr.KindInUse, apperr.KindInvalidState:
+		return http.StatusConflict
+	case apperr.KindValidation:
+		return http.StatusUnprocessableEntity
+	case apperr.KindNotImplemented:
+		return http.StatusNotImplemented
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+func FromError(w http.ResponseWriter, r *http.Request, err error) {
+	var ae *apperr.Error
+	if !errors.As(err, &ae) {
+		ae = apperr.Internal(err)
+	}
+
+	if ae.Kind == apperr.KindInternal {
+		log.Printf("[req=%s] internal error: %v", chimiddleware.GetReqID(r.Context()), ae.Err)
+	}
+
+	JSON(w, statusOf(ae.Kind), ErrorResponse{Error: ErrorDetail{
+		Code:    string(ae.Kind),
+		Message: ae.Message,
+		Fields:  ae.Fields,
+		Details: ae.Details,
+	}})
 }
