@@ -1,7 +1,9 @@
 package config
 
 import (
+	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
@@ -28,14 +30,8 @@ func Load() {
 		log.Printf("⚠️  .env file not found, using environment variables: %v", err)
 	}
 
-	jwtExpiry, err := time.ParseDuration(viper.GetString("JWT_EXPIRY"))
-	if err != nil {
-		jwtExpiry = 15 * time.Minute
-	}
-	refreshExpiry, err := time.ParseDuration(viper.GetString("REFRESH_TOKEN_EXPIRY"))
-	if err != nil {
-		refreshExpiry = 168 * time.Hour
-	}
+	jwtExpiry := parseDuration("JWT_EXPIRY", 15*time.Minute)
+	refreshExpiry := parseDuration("REFRESH_TOKEN_EXPIRY", 168*time.Hour)
 
 	App = Config{
 		Port:               viper.GetString("PORT"),
@@ -57,4 +53,51 @@ func Load() {
 	if App.MaxFileSizeMB == 0 {
 		App.MaxFileSizeMB = 10
 	}
+
+	// Validasi SETELAH semua nilai terisi
+	if err := App.Validate(); err != nil {
+		log.Fatalf("❌ Invalid configuration:\n%v", err)
+	}
+}
+
+// parseDuration: fallback ke default kalau kosong, tapi WARN kalau
+// isinya ada tapi salah format (misal "15mins"), biar typo nggak diam-diam ketutup.
+func parseDuration(key string, def time.Duration) time.Duration {
+	raw := viper.GetString(key)
+	if raw == "" {
+		return def
+	}
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		log.Printf("⚠️  %s=%q tidak valid, pakai default %s", key, raw, def)
+		return def
+	}
+	return d
+}
+
+func (c Config) Validate() error {
+	var problems []string
+
+	if c.DatabaseURL == "" {
+		problems = append(problems, "DATABASE_URL is required")
+	}
+
+	if len(c.JWTSecret) < 32 {
+		problems = append(problems, "JWT_SECRET must be at least 32 characters")
+	}
+	for _, prefix := range []string{"ganti-dengan", "replace-with"} {
+		if strings.HasPrefix(c.JWTSecret, prefix) {
+			problems = append(problems, "JWT_SECRET is still the placeholder from .env.example")
+			break
+		}
+	}
+
+	if c.CORSOrigin == "" || c.CORSOrigin == "*" {
+		problems = append(problems, "CORS_ORIGIN must be a specific origin (not empty or *)")
+	}
+
+	if len(problems) > 0 {
+		return fmt.Errorf(" - %s", strings.Join(problems, "\n - "))
+	}
+	return nil
 }
