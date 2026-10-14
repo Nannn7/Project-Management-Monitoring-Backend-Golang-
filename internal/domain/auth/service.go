@@ -3,10 +3,13 @@ package auth
 import (
 	"context"
 	"errors"
+	"log"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yourorg/pmo-agi-be/internal/apperr"
 	"github.com/yourorg/pmo-agi-be/internal/config"
 	"github.com/yourorg/pmo-agi-be/internal/middleware"
 	"golang.org/x/crypto/bcrypt"
@@ -20,50 +23,59 @@ func NewService(db *pgxpool.Pool) *Service {
 	return &Service{db: db}
 }
 
+var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("dummy-password"), bcrypt.DefaultCost)
+var errInvalidCreds = apperr.Unauthenticated("wrong email or password")
+
 // Login — verifikasi email+password, return token pair
 func (s *Service) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
-	// 1. Ambil user dari DB
 	var user AppUser
 	err := s.db.QueryRow(ctx, `
-		SELECT id, name, email, password_hash, is_active
+		SELECT id, name, email, COALESCE(password_hash, ''), is_active
 		FROM app_users WHERE lower(email) = lower($1)
 	`, req.Email).Scan(&user.ID, &user.Name, &user.Email, &user.PasswordHash, &user.IsActive)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(req.Password)) // samain waktu respons
+		return nil, errInvalidCreds
+	}
 	if err != nil {
-		return nil, errors.New("email atau password salah")
+		return nil, apperr.Internal(err)
+	}
+
+	hash := []byte(user.PasswordHash)
+	if len(hash) == 0 {
+		hash = dummyHash
+	}
+	if bcrypt.CompareHashAndPassword(hash, []byte(req.Password)) != nil {
+		return nil, errInvalidCreds
 	}
 	if !user.IsActive {
-		return nil, errors.New("akun tidak aktif")
+		return nil, apperr.Unauthenticated("akun tidak aktif")
 	}
 
-	// 2. Verifikasi password
-	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
-		return nil, errors.New("email atau password salah")
-	}
-
-	// 3. Ambil roles
 	roles, err := s.getUserRoles(ctx, user.ID)
 	if err != nil {
-		return nil, err
+		return nil, apperr.Internal(err)
 	}
 
-	// 4. Generate token pair
-	accessToken, err := s.generateToken(user, roles, config.App.JWTExpiry)
+	accessToken, err := s.generateToken(user, roles, config.App.JWTExpiry, middleware.TokenTypeAccess)
 	if err != nil {
-		return nil, err
+		return nil, apperr.Internal(err)
 	}
-	refreshToken, err := s.generateToken(user, roles, config.App.RefreshTokenExpiry)
+	refreshToken, err := s.generateToken(user, nil, config.App.RefreshTokenExpiry, middleware.TokenTypeRefresh)
 	if err != nil {
-		return nil, err
+		return nil, apperr.Internal(err)
 	}
 
-	// 5. Ambil permissions
 	permissions, isAdmin, err := s.getUserPermissions(ctx, user.ID)
 	if err != nil {
-		return nil, err
+		return nil, apperr.Internal(err)
 	}
 
-	// 6. Update last_login_at
-	s.db.Exec(ctx, `UPDATE app_users SET last_login_at = now() WHERE id = $1`, user.ID)
+	// last_login_at itu nice-to-have: gagal update jangan bikin login gagal
+	if _, err := s.db.Exec(ctx, `UPDATE app_users SET last_login_at = now() WHERE id = $1`, user.ID); err != nil {
+		log.Printf("warn: gagal update last_login_at: %v", err)
+	}
 
 	return &LoginResponse{
 		AccessToken:  accessToken,
@@ -112,16 +124,37 @@ func (s *Service) Me(ctx context.Context, userID string) (*UserInfo, error) {
 
 // RefreshToken — validasi refresh token, return access token baru
 func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*LoginResponse, error) {
-	claims := &middleware.Claims{}
-	token, err := jwt.ParseWithClaims(refreshToken, claims, func(t *jwt.Token) (any, error) {
-		return []byte(config.App.JWTSecret), nil
-	})
-	if err != nil || !token.Valid {
-		return nil, errors.New("refresh token tidak valid")
+	claims, err := middleware.ParseToken(refreshToken, middleware.TokenTypeRefresh)
+	if err != nil {
+		return nil, apperr.Unauthenticated("refresh token tidak valid")
+	}
+
+	var user AppUser
+	err = s.db.QueryRow(ctx,
+		`SELECT id, name, email, is_active FROM app_users WHERE id = $1`, claims.UserID,
+	).Scan(&user.ID, &user.Name, &user.Email, &user.IsActive)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !user.IsActive) {
+		return nil, apperr.Unauthenticated("user tidak ditemukan atau tidak aktif")
+	}
+	if err != nil {
+		return nil, apperr.Internal(err)
+	}
+
+	roles, err := s.getUserRoles(ctx, user.ID)
+	if err != nil {
+		return nil, apperr.Internal(err)
+	}
+	accessToken, err := s.generateToken(user, roles, config.App.JWTExpiry, middleware.TokenTypeAccess)
+	if err != nil {
+		return nil, apperr.Internal(err)
+	}
+	permissions, isAdmin, err := s.getUserPermissions(ctx, user.ID)
+	if err != nil {
+		return nil, apperr.Internal(err)
 	}
 
 	// Ambil user info terbaru
-	var user AppUser
+	// var user AppUser
 	err = s.db.QueryRow(ctx, `
 		SELECT id, name, email, is_active FROM app_users WHERE id = $1
 	`, claims.UserID).Scan(&user.ID, &user.Name, &user.Email, &user.IsActive)
@@ -129,17 +162,9 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*Login
 		return nil, errors.New("user tidak ditemukan atau tidak aktif")
 	}
 
-	roles, _ := s.getUserRoles(ctx, user.ID)
-	accessToken, err := s.generateToken(user, roles, config.App.JWTExpiry)
-	if err != nil {
-		return nil, err
-	}
-
-	permissions, isAdmin, _ := s.getUserPermissions(ctx, user.ID)
-
 	return &LoginResponse{
 		AccessToken:  accessToken,
-		RefreshToken: refreshToken, // refresh token tetap sama
+		RefreshToken: refreshToken, // belum rotation, dicatat sebagai task terpisah
 		ExpiresIn:    int(config.App.JWTExpiry.Seconds()),
 		User: UserInfo{
 			ID:              user.ID,
@@ -154,19 +179,19 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*Login
 
 // --- Private helpers ---
 
-func (s *Service) generateToken(user AppUser, roles []string, expiry time.Duration) (string, error) {
+func (s *Service) generateToken(user AppUser, roles []string, expiry time.Duration, typ string) (string, error) {
 	claims := middleware.Claims{
-		UserID: user.ID,
-		Email:  user.Email,
-		Name:   user.Name,
-		Roles:  roles,
+		UserID:    user.ID,
+		TokenType: typ,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(config.App.JWTSecret))
+	if typ == middleware.TokenTypeAccess {
+		claims.Email, claims.Name, claims.Roles = user.Email, user.Name, roles
+	}
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString([]byte(config.App.JWTSecret))
 }
 
 func (s *Service) getUserRoles(ctx context.Context, userID string) ([]string, error) {

@@ -22,7 +22,7 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body tidak valid.")
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body is not valid.")
 		return
 	}
 	if err := h.validate.Struct(req); err != nil {
@@ -32,7 +32,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.svc.Login(r.Context(), req)
 	if err != nil {
-		response.Error(w, http.StatusUnauthorized, "UNAUTHENTICATED", err.Error())
+		response.FromError(w, r, err)
 		return
 	}
 	response.Success(w, result)
@@ -42,13 +42,13 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req RefreshRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body tidak valid.")
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body is not valid.")
 		return
 	}
 
 	result, err := h.svc.RefreshToken(r.Context(), req.RefreshToken)
 	if err != nil {
-		response.Unauthorized(w)
+		response.FromError(w, r, err)
 		return
 	}
 	response.Success(w, result)
@@ -71,7 +71,7 @@ func (h *Handler) Me(w http.ResponseWriter, r *http.Request) {
 
 	info, err := h.svc.Me(r.Context(), user.UserID)
 	if err != nil {
-		response.NotFound(w)
+		response.FromError(w, r, err)
 		return
 	}
 	response.Success(w, info)
