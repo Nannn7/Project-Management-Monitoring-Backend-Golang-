@@ -40,7 +40,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	projects, total, err := h.svc.ListProjects(r.Context(), user.UserID, q, status, priorityID, categoryID, directorateID, sort, page, pageSize)
 	if err != nil {
-		response.InternalError(w)
+		response.FromError(w, r, err)
 		return
 	}
 	response.List(w, projects, page, pageSize, total)
@@ -53,7 +53,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 
 	project, err := h.svc.GetProject(r.Context(), user.UserID, projectID)
 	if err != nil || project == nil {
-		response.NotFound(w) // 404 juga untuk project yang tidak boleh diakses (spec §2.3)
+		response.FromError(w, r, err) // 404 juga untuk project yang tidak boleh diakses (spec §2.3)
 		return
 	}
 	response.Success(w, project)
@@ -64,7 +64,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
 	var req CreateProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body tidak valid.")
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body is not valid.")
 		return
 	}
 	if err := h.validate.Struct(req); err != nil {
@@ -74,7 +74,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 
 	project, err := h.svc.CreateProject(r.Context(), user.UserID, req)
 	if err != nil {
-		response.InternalError(w)
+		response.FromError(w, r, err)
 		return
 	}
 	response.Created(w, project)
@@ -101,7 +101,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 
 	project, err := h.svc.UpdateProject(r.Context(), user.UserID, projectID, req)
 	if err != nil {
-		response.InternalError(w)
+		response.FromError(w, r, err)
 		return
 	}
 	response.Success(w, project)
@@ -113,7 +113,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	projectID := chi.URLParam(r, "id")
 
 	if err := h.svc.DeleteProject(r.Context(), user.UserID, projectID); err != nil {
-		response.InternalError(w)
+		response.FromError(w, r, err)
 		return
 	}
 	response.NoContent(w)
@@ -136,7 +136,7 @@ func (h *Handler) ChangeStatus(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.svc.ChangeStatus(r.Context(), user.UserID, projectID, req)
 	if err != nil {
-		response.InternalError(w)
+		response.FromError(w, r, err)
 		return
 	}
 	response.Success(w, result)

@@ -31,7 +31,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 
 	data, err := h.svc.GetDashboard(r.Context(), user.UserID, projectLimit, meetingLimit)
 	if err != nil {
-		response.InternalError(w)
+		response.FromError(w, r, err)
 		return
 	}
 	response.Success(w, data)

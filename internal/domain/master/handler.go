@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/yourorg/pmo-agi-be/internal/apperr"
 	"github.com/yourorg/pmo-agi-be/internal/response"
 )
 
@@ -20,7 +21,7 @@ func NewHandler(svc *Service) *Handler {
 func (h *Handler) GetLookups(w http.ResponseWriter, r *http.Request) {
 	data, err := h.svc.GetLookups(r.Context())
 	if err != nil {
-		response.InternalError(w)
+		response.FromError(w, r, err)
 		return
 	}
 	response.Success(w, data)
@@ -30,7 +31,7 @@ func (h *Handler) GetLookups(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	resource := chi.URLParam(r, "resource")
 	if _, ok := ValidateResource(resource); !ok {
-		response.NotFound(w)
+		response.FromError(w, r, apperr.NotFound("resource not found"))
 		return
 	}
 
@@ -52,7 +53,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 	items, total, err := h.svc.ListResource(r.Context(), resource, q, page, pageSize, isActiveFilter)
 	if err != nil {
-		response.InternalError(w)
+		response.FromError(w, r, err)
 		return
 	}
 	response.List(w, items, page, pageSize, total)
@@ -80,7 +81,7 @@ func (h *Handler) ListEmployees(w http.ResponseWriter, r *http.Request) {
 
 	employees, total, err := h.svc.ListEmployees(r.Context(), q, role, directorateID, isActiveFilter, page, pageSize)
 	if err != nil {
-		response.InternalError(w)
+		response.FromError(w, r, err)
 		return
 	}
 	response.List(w, employees, page, pageSize, total)
