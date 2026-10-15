@@ -2,31 +2,23 @@ package master
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yourorg/pmo-agi-be/internal/apperr"
 )
 
-// resourceConfig — mapping resource name ke tabel DB dan kolom unik
-type resourceConfig struct {
-	Table      string
-	UniqueCol  string
-	InUseTables []string // tabel yang memakai FK ke resource ini
-}
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
-var resourceMap = map[string]resourceConfig{
-	"directorates":       {Table: "master_directorates", UniqueCol: "name", InUseTables: []string{"master_subdirectorates", "employees", "projects"}},
-	"subdirectorates":    {Table: "master_subdirectorates", UniqueCol: "name", InUseTables: []string{"employees", "projects"}},
-	"vendors":            {Table: "master_vendors", UniqueCol: "name", InUseTables: []string{"projects"}},
-	"project-categories": {Table: "master_project_categories", UniqueCol: "name", InUseTables: []string{"projects"}},
-	"project-priorities": {Table: "master_project_priorities", UniqueCol: "name", InUseTables: []string{"projects"}},
-	"approval-levels":    {Table: "master_approval_levels", UniqueCol: "name", InUseTables: []string{"document_approvers"}},
-	"project-roles":      {Table: "master_project_roles", UniqueCol: "name", InUseTables: []string{"employee_roles", "project_members"}},
-	"task-categories":    {Table: "master_task_categories", UniqueCol: "name", InUseTables: []string{"tasks"}},
-	"meeting-categories": {Table: "master_meeting_categories", UniqueCol: "name", InUseTables: []string{"meetings"}},
-	"dependency-systems": {Table: "master_dependency_systems", UniqueCol: "name", InUseTables: []string{"phase_dependencies"}},
-	"document-types":     {Table: "master_document_types", UniqueCol: "code", InUseTables: []string{"documents"}},
-	"test-types":         {Table: "master_test_types", UniqueCol: "code", InUseTables: []string{"phase_test_stages"}},
+func lookup(resource string) (*resourceDef, error) {
+	def, ok := registry[resource]
+	if !ok {
+		return nil, apperr.NotFound("Resource tidak dikenal.")
+	}
+	return &def, nil
 }
 
 type Service struct {
@@ -94,60 +86,68 @@ func (s *Service) GetLookups(ctx context.Context) (*LookupsResponse, error) {
 	return resp, nil
 }
 
-// ValidateResource — cek apakah resource name valid
-func ValidateResource(resource string) (*resourceConfig, bool) {
-	cfg, ok := resourceMap[resource]
-	return &cfg, ok
-}
-
 // ListResource — GET /master/{resource}
-func (s *Service) ListResource(ctx context.Context, resource, q string, page, pageSize int, isActiveFilter *bool) ([]MasterItem, int, error) {
-	cfg, ok := resourceMap[resource]
-	if !ok {
-		return nil, 0, fmt.Errorf("resource tidak dikenal")
-	}
-
-	offset := (page - 1) * pageSize
-	whereClause := "WHERE 1=1"
-	args := []any{}
-	argIdx := 1
-
-	if q != "" {
-		whereClause += fmt.Sprintf(" AND name ILIKE $%d", argIdx)
-		args = append(args, "%"+q+"%")
-		argIdx++
-	}
-	if isActiveFilter != nil {
-		whereClause += fmt.Sprintf(" AND is_active = $%d", argIdx)
-		args = append(args, *isActiveFilter)
-		argIdx++
-	}
-
-	var total int
-	s.db.QueryRow(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s %s", cfg.Table, whereClause), args...).Scan(&total)
-
-	args = append(args, pageSize, offset)
-	rows, err := s.db.Query(ctx, fmt.Sprintf(`
-		SELECT id, name, sort_order, is_active, created_at, updated_at
-		FROM %s %s
-		ORDER BY sort_order, name
-		LIMIT $%d OFFSET $%d
-	`, cfg.Table, whereClause, argIdx, argIdx+1), args...)
+func (s *Service) ListResource(ctx context.Context, resource, q, sort string, page, pageSize int, isActive *bool) ([]map[string]any, int, error) {
+	def, err := lookup(resource)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
 
-	var items []MasterItem
-	for rows.Next() {
-		var item MasterItem
-		rows.Scan(&item.ID, &item.Name, &item.SortOrder, &item.IsActive, &item.CreatedAt, &item.UpdatedAt)
-		items = append(items, item)
+	where := []string{"TRUE"}
+	args := []any{}
+
+	if q != "" {
+		args = append(args, "%"+likeEscaper.Replace(q)+"%")
+		conds := make([]string, len(def.SearchCols))
+		for i, c := range def.SearchCols {
+			conds[i] = fmt.Sprintf("t.%s ILIKE $%d", c, len(args))
+		}
+		where = append(where, "("+strings.Join(conds, " OR ")+")")
+	}
+	if isActive != nil {
+		args = append(args, *isActive)
+		where = append(where, fmt.Sprintf("t.is_active = $%d", len(args)))
+	}
+	whereSQL := strings.Join(where, " AND ")
+
+	var total int
+	if err := s.db.QueryRow(ctx,
+		fmt.Sprintf(`SELECT count(*) FROM %s WHERE %s`, def.from(), whereSQL), args...,
+	).Scan(&total); err != nil {
+		return nil, 0, apperr.Internal(err)
+	}
+
+	args = append(args, pageSize, (page-1)*pageSize)
+	rows, err := s.db.Query(ctx, fmt.Sprintf(
+		`SELECT %s FROM %s WHERE %s ORDER BY %s LIMIT $%d OFFSET $%d`,
+		def.Select, def.from(), whereSQL, def.orderBy(sort), len(args)-1, len(args)), args...)
+	if err != nil {
+		return nil, 0, apperr.Internal(err)
+	}
+	items, err := pgx.CollectRows(rows, pgx.RowToMap) // nutup rows + cek Scan + rows.Err sekaligus
+	if err != nil {
+		return nil, 0, apperr.Internal(err)
 	}
 	if items == nil {
-		items = []MasterItem{}
+		items = []map[string]any{}
 	}
 	return items, total, nil
+}
+
+func (s *Service) getOne(ctx context.Context, def *resourceDef, id string) (map[string]any, error) {
+	rows, err := s.db.Query(ctx,
+		fmt.Sprintf(`SELECT %s FROM %s WHERE t.id = $1`, def.Select, def.from()), id)
+	if err != nil {
+		return nil, apperr.Internal(err)
+	}
+	item, err := pgx.CollectOneRow(rows, pgx.RowToMap)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, apperr.NotFound("Data tidak ditemukan.")
+	}
+	if err != nil {
+		return nil, apperr.Internal(err)
+	}
+	return item, nil
 }
 
 // ListEmployees — GET /employees
