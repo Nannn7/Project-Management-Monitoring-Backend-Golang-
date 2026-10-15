@@ -240,25 +240,29 @@ func (s *Service) DeleteResource(ctx context.Context, resource, id string) error
 
 // inUseError menghitung siapa yang masih memakai, buat detail IN_USE di spec §5.2.
 func (s *Service) inUseError(ctx context.Context, def *resourceDef, id string) error {
-	refs := []InUseReference{}
+	return s.inUseErr(ctx, def.Label, def.Refs, id)
+}
+
+func (s *Service) inUseErr(ctx context.Context, label string, refs []ref, id string) error {
+	found := []InUseReference{}
 	parts := []string{}
-	for _, r := range def.Refs {
+	for _, r := range refs {
 		var n int
 		if err := s.db.QueryRow(ctx,
 			fmt.Sprintf(`SELECT count(*) FROM %s WHERE %s = $1`, r.Table, r.Col), id).Scan(&n); err != nil {
 			return apperr.Internal(err)
 		}
 		if n > 0 {
-			refs = append(refs, InUseReference{Entity: r.Entity, Count: n})
+			found = append(found, InUseReference{Entity: r.Entity, Count: n})
 			parts = append(parts, fmt.Sprintf("%d %s", n, r.Entity))
 		}
 	}
-	msg := def.Label + " masih dipakai data lain."
+	msg := label + " masih dipakai data lain."
 	if len(parts) > 0 {
-		msg = fmt.Sprintf("%s masih dipakai oleh %s.", def.Label, strings.Join(parts, ", "))
+		msg = fmt.Sprintf("%s masih dipakai oleh %s.", label, strings.Join(parts, ", "))
 	}
 	return apperr.InUse(msg, InUseDetails{
-		References: refs,
+		References: found,
 		Suggestion: "Nonaktifkan saja (isActive=false).",
 	})
 }

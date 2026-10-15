@@ -56,27 +56,27 @@ type DependencySystem struct {
 // --- Employee ---
 
 type Employee struct {
-	ID              string    `json:"id"`
-	Name            string    `json:"name"`
-	DirectorateID   string    `json:"directorateId"`
-	Directorate     string    `json:"directorate"`
+	ID               string   `json:"id"`
+	Name             string   `json:"name"`
+	DirectorateID    string   `json:"directorateId"`
+	Directorate      string   `json:"directorate"`
 	SubdirectorateID string   `json:"subdirectorateId"`
-	Subdirectorate  string    `json:"subdirectorate"`
-	Roles           []string  `json:"roles"`
-	RoleIDs         []string  `json:"roleIds"`
-	UserID          *string   `json:"userId"`
-	IsActive        bool      `json:"isActive"`
+	Subdirectorate   string   `json:"subdirectorate"`
+	Roles            []string `json:"roles"`
+	RoleIDs          []string `json:"roleIds"`
+	UserID           *string  `json:"userId"`
+	IsActive         bool     `json:"isActive"`
 }
 
 // --- Request bodies ---
 
 type CreateMasterRequest struct {
-	Name             string  `json:"name"`
-	Code             string  `json:"code"`
-	Description      string  `json:"description"`
-	DirectorateID    string  `json:"directorateId"`
-	RequiresPrevious *bool   `json:"requiresPrevious"`
-	AllowParallel    *bool   `json:"allowParallel"`
+	Name             string `json:"name"`
+	Code             string `json:"code"`
+	Description      string `json:"description"`
+	DirectorateID    string `json:"directorateId"`
+	RequiresPrevious *bool  `json:"requiresPrevious"`
+	AllowParallel    *bool  `json:"allowParallel"`
 }
 
 type UpdateMasterRequest struct {
@@ -89,14 +89,14 @@ type CreateEmployeeRequest struct {
 	Name             string   `json:"name" validate:"required"`
 	DirectorateID    string   `json:"directorateId" validate:"required,uuid"`
 	SubdirectorateID string   `json:"subdirectorateId" validate:"required,uuid"`
-	RoleIDs          []string `json:"roleIds" validate:"required,min=1"`
+	RoleIDs          []string `json:"roleIds" validate:"required,min=1,dive,uuid"`
 }
 
 type UpdateEmployeeRequest struct {
-	Name             *string  `json:"name"`
-	DirectorateID    *string  `json:"directorateId"`
-	SubdirectorateID *string  `json:"subdirectorateId"`
-	RoleIDs          []string `json:"roleIds"`
+	Name             *string  `json:"name" validate:"omitempty,min=1"`
+	DirectorateID    *string  `json:"directorateId" validate:"omitempty,uuid"`
+	SubdirectorateID *string  `json:"subdirectorateId" validate:"omitempty,uuid"`
+	RoleIDs          []string `json:"roleIds" validate:"omitempty,min=1,dive,uuid"`
 	IsActive         *bool    `json:"isActive"`
 }
 

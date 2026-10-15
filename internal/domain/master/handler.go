@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/yourorg/pmo-agi-be/internal/response"
+	"github.com/yourorg/pmo-agi-be/internal/validation"
 )
 
 type Handler struct {
@@ -84,7 +85,8 @@ func (h *Handler) ListEmployees(w http.ResponseWriter, r *http.Request) {
 		isActiveFilter = &b
 	}
 
-	employees, total, err := h.svc.ListEmployees(r.Context(), q, role, directorateID, isActiveFilter, page, pageSize)
+	sort := r.URL.Query().Get("sort")
+	employees, total, err := h.svc.ListEmployees(r.Context(), q, role, directorateID, sort, isActiveFilter, page, pageSize)
 	if err != nil {
 		response.FromError(w, r, err)
 		return
@@ -129,17 +131,57 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
-// POST /employees — stub
+func decodeStrict(w http.ResponseWriter, r *http.Request, dst any) bool {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+	dec.DisallowUnknownFields() // userId, dll yang bukan hak endpoint ini = 400
+	if err := dec.Decode(dst); err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body tidak valid.")
+		return false
+	}
+	return true
+}
+
+// POST /employees
 func (h *Handler) CreateEmployee(w http.ResponseWriter, r *http.Request) {
-	response.Error(w, http.StatusNotImplemented, "NOT_IMPLEMENTED", "TODO: implementasi create employee")
+	var req CreateEmployeeRequest
+	if !decodeStrict(w, r, &req) {
+		return
+	}
+	if fields := validation.Fields(req); fields != nil {
+		response.ValidationError(w, fields)
+		return
+	}
+	emp, err := h.svc.CreateEmployee(r.Context(), req)
+	if err != nil {
+		response.FromError(w, r, err)
+		return
+	}
+	response.Created(w, emp)
 }
 
-// PATCH /employees/{id} — stub
+// PATCH /employees/{id}
 func (h *Handler) UpdateEmployee(w http.ResponseWriter, r *http.Request) {
-	response.Error(w, http.StatusNotImplemented, "NOT_IMPLEMENTED", "TODO: implementasi update employee")
+	var req UpdateEmployeeRequest
+	if !decodeStrict(w, r, &req) {
+		return
+	}
+	if fields := validation.Fields(req); fields != nil {
+		response.ValidationError(w, fields)
+		return
+	}
+	emp, err := h.svc.UpdateEmployee(r.Context(), chi.URLParam(r, "id"), req)
+	if err != nil {
+		response.FromError(w, r, err)
+		return
+	}
+	response.Success(w, emp)
 }
 
-// DELETE /employees/{id} — stub
+// DELETE /employees/{id}
 func (h *Handler) DeleteEmployee(w http.ResponseWriter, r *http.Request) {
-	response.Error(w, http.StatusNotImplemented, "NOT_IMPLEMENTED", "TODO: implementasi delete employee")
+	if err := h.svc.DeleteEmployee(r.Context(), chi.URLParam(r, "id")); err != nil {
+		response.FromError(w, r, err)
+		return
+	}
+	response.NoContent(w)
 }
