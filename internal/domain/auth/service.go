@@ -98,8 +98,11 @@ func (s *Service) Me(ctx context.Context, userID string) (*UserInfo, error) {
 	err := s.db.QueryRow(ctx, `
 		SELECT id, name, email FROM app_users WHERE id = $1 AND is_active = true
 	`, userID).Scan(&user.ID, &user.Name, &user.Email)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, apperr.Unauthenticated("user tidak ditemukan atau tidak aktif")
+	}
 	if err != nil {
-		return nil, errors.New("user tidak ditemukan")
+		return nil, apperr.Internal(err)
 	}
 
 	roles, err := s.getUserRoles(ctx, user.ID)
@@ -151,15 +154,6 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*Login
 	permissions, isAdmin, err := s.getUserPermissions(ctx, user.ID)
 	if err != nil {
 		return nil, apperr.Internal(err)
-	}
-
-	// Ambil user info terbaru
-	// var user AppUser
-	err = s.db.QueryRow(ctx, `
-		SELECT id, name, email, is_active FROM app_users WHERE id = $1
-	`, claims.UserID).Scan(&user.ID, &user.Name, &user.Email, &user.IsActive)
-	if err != nil || !user.IsActive {
-		return nil, errors.New("user tidak ditemukan atau tidak aktif")
 	}
 
 	return &LoginResponse{
