@@ -59,7 +59,7 @@ func Internal(err error) *Error {
 	return &Error{Kind: KindInternal, Message: "Something went wrong on the server.", Err: err}
 }
 
-func FromDB(err error, notFoundMsg string) *Error {
+func FromDB(err error, notFoundMsg string) error {
 	if err == nil {
 		return nil
 	}
@@ -72,3 +72,5 @@ func FromDB(err error, notFoundMsg string) *Error {
 	}
 	return Internal(err)
 }
+
+func BadRequest(msg string) *Error { return &Error{Kind: KindBadRequest, Message: msg} }

@@ -139,7 +139,10 @@ func New(db *pgxpool.Pool) http.Handler {
 			})
 
 			// Employees
-			r.Get("/employees", masterH.ListEmployees) // projects.view ATAU master-data.view — dicek di handler
+			r.With(middleware.RequireAnyPermission(db,
+				middleware.MenuAction{Menu: "projects", Action: "view"},
+				middleware.MenuAction{Menu: "master-data", Action: "view"},
+			)).Get("/employees", masterH.ListEmployees)
 			r.With(requirePerm("master-data", "create")).Post("/employees", masterH.CreateEmployee)
 			r.With(requirePerm("master-data", "edit")).Patch("/employees/{id}", masterH.UpdateEmployee)
 			r.With(requirePerm("master-data", "delete")).Delete("/employees/{id}", masterH.DeleteEmployee)
