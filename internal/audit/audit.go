@@ -23,8 +23,8 @@ func Record(ctx context.Context, q db.Querier, entries ...Entry) error {
 	for _, e := range entries {
 		_, err := q.Exec(ctx, `
 			INSERT INTO audit_logs
-			  (project_id, entity_type, entity_id, entity_label, field, old_value, new_value, changed_by)
-			VALUES (NULLIF($1,'')::uuid, $2, NULLIF($3,'')::uuid, $4, $5, $6, $7, $8)`,
+			  (project_id, entity_type, entity_id, entity_label, field, old_value, new_value, changed_by, changed_at)
+			VALUES (NULLIF($1,'')::uuid, $2, NULLIF($3,'')::uuid, $4, $5, $6, $7, $8, clock_timestamp())`,
 			e.ProjectID, e.EntityType, e.EntityID, e.Label, e.Field, e.Old, e.New, e.ChangedBy)
 		if err != nil {
 			return fmt.Errorf("audit: %w", err)
