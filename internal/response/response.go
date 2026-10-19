@@ -76,26 +76,26 @@ func Error(w http.ResponseWriter, status int, code, message string) {
 func ValidationError(w http.ResponseWriter, fields map[string]string) {
 	JSON(w, http.StatusUnprocessableEntity, ErrorResponse{Error: ErrorDetail{
 		Code:    "VALIDATION_ERROR",
-		Message: "Data is not valid.",
+		Message: "Data tidak valid.",
 		Fields:  fields,
 		Details: nil,
 	}})
 }
 
 func Unauthorized(w http.ResponseWriter) {
-	Error(w, http.StatusUnauthorized, "UNAUTHENTICATED", "Token is not valid or expired.")
+	Error(w, http.StatusUnauthorized, "UNAUTHENTICATED", "Token tidak valid atau sudah expired.")
 }
 
 func Forbidden(w http.ResponseWriter) {
-	Error(w, http.StatusForbidden, "FORBIDDEN", "You don't have access.")
+	Error(w, http.StatusForbidden, "FORBIDDEN", "Anda tidak memiliki akses.")
 }
 
 func NotFound(w http.ResponseWriter) {
-	Error(w, http.StatusNotFound, "NOT_FOUND", "Data is not found.")
+	Error(w, http.StatusNotFound, "NOT_FOUND", "Data tidak ditemukan.")
 }
 
 func InternalError(w http.ResponseWriter) {
-	Error(w, http.StatusInternalServerError, "INTERNAL", "Something went wrong on the server.")
+	Error(w, http.StatusInternalServerError, "INTERNAL", "Terjadi kesalahan internal di server.")
 }
 
 func Conflict(w http.ResponseWriter, code, message string) {
