@@ -2,6 +2,7 @@ package master
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -42,6 +43,9 @@ type resourceDef struct {
 	// baris dengan kolom boolean ini = true dilindungi
 	ProtectDeleteCol string
 	ProtectEditCol   string // melindungi perubahan "name"
+	// Derive dipanggil setelah parse() saat create: isi kolom yang dihitung server.
+	// Kembalikan map field->pesan kalau gagal.
+	Derive func(vals map[string]any) map[string]string
 }
 
 const baseSelect = `t.id::text AS id, t.sort_order AS "sortOrder", t.is_active AS "isActive",
@@ -51,6 +55,13 @@ const baseSelect = `t.id::text AS id, t.sort_order AS "sortOrder", t.is_active A
 var baseFields = []field{
 	{JSON: "isActive", Col: "is_active", Kind: kBool, Editable: true},
 	{JSON: "sortOrder", Col: "sort_order", Kind: kInt, Editable: true},
+}
+
+var nonAlnum = regexp.MustCompile(`[^A-Z0-9]+`)
+
+// roleCode: "QA Lead" -> "QA_LEAD". Huruf non-ASCII dibuang; kosong = nama tidak valid.
+func roleCode(name string) string {
+	return strings.Trim(nonAlnum.ReplaceAllString(strings.ToUpper(name), "_"), "_")
 }
 
 func nameOnly(table, label string, refs ...ref) resourceDef {
@@ -113,8 +124,16 @@ var registry = map[string]resourceDef{
 		SearchCols: []string{"name", "code"},
 		OrderBy:    "t.sort_order, t.name",
 		Fields: []field{
-			{JSON: "code", Col: "code", Kind: kString, Required: true}, // read-only setelah dibuat
 			{JSON: "name", Col: "name", Kind: kString, Required: true, Editable: true},
+		},
+		Derive: func(vals map[string]any) map[string]string {
+			name, _ := vals["name"].(string)
+			code := roleCode(name)
+			if code == "" {
+				return map[string]string{"name": "Harus mengandung huruf atau angka"}
+			}
+			vals["code"] = code
+			return nil
 		},
 		ProtectDeleteCol: "is_system",
 		Refs: []ref{

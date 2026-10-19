@@ -19,7 +19,8 @@ function Api($method, $path, $body = $null) {
     $data = $null
     if ($r.Content) { $data = $r.Content | ConvertFrom-Json }
     return @{ Status = [int]$r.StatusCode; Data = $data; Code = $null; Err = $null }
-  } catch {
+  }
+  catch {
     $msg = $_.ErrorDetails.Message
     if (-not $msg -and $_.Exception.Response) {
       try { $msg = (New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())).ReadToEnd() } catch {}
@@ -51,7 +52,7 @@ Check "tanpa token -> 401" (Api GET "/master/vendors").Status 401
 $script:token = $saved
 
 # --- read: 12 resource semua harus 200 (document-types & test-types sebelumnya error SQL) ---
-foreach ($res in "directorates","subdirectorates","vendors","project-categories","project-priorities","approval-levels","project-roles","task-categories","meeting-categories","dependency-systems","document-types","test-types") {
+foreach ($res in "directorates", "subdirectorates", "vendors", "project-categories", "project-priorities", "approval-levels", "project-roles", "task-categories", "meeting-categories", "dependency-systems", "document-types", "test-types") {
   Check "list $res" (Api GET "/master/${res}?pageSize=5").Status 200
 }
 Check "resource ngawur -> 404" (Api GET "/master/ngawur").Status 404
@@ -108,13 +109,23 @@ if ($pmo) {
   Check "hapus role sistem PMO" $x.Status 409
   Check "  code = INVALID_STATE" $x.Code "INVALID_STATE"
   Check "ubah code role -> 422" (Api PATCH "/master/project-roles/$($pmo.id)" @{ code = "XXX" }).Status 422
-} else { Write-Host "SKIP  role PMO nggak ketemu" -ForegroundColor Yellow }
+}
+else { Write-Host "SKIP  role PMO nggak ketemu" -ForegroundColor Yellow }
 
 $other = @((Api GET "/master/dependency-systems?q=Lainnya").Data.data) | Where-Object { $_.isOther } | Select-Object -First 1
 if ($other) {
   Check "hapus 'Lainnya'" (Api DELETE "/master/dependency-systems/$($other.id)").Status 409
   Check "rename 'Lainnya'" (Api PATCH "/master/dependency-systems/$($other.id)" @{ name = "Other" }).Status 409
-} else { Write-Host "SKIP  'Lainnya' nggak ketemu" -ForegroundColor Yellow }
+}
+else { Write-Host "SKIP  'Lainnya' nggak ketemu" -ForegroundColor Yellow }
+
+# --- role: code diderive server ---
+$role = Api POST "/master/project-roles" @{ name = "SMOKE Role $run" }
+Check "create role (name saja)" $role.Status 201
+Check "  code diderive" $role.Data.data.code "SMOKE_ROLE_$run"
+Check "  isSystem false" $role.Data.data.isSystem $false
+Check "create role kirim code -> 422" (Api POST "/master/project-roles" @{ name = "SMOKE Role2 $run"; code = "X" }).Status 422
+Check "delete role buatan sendiri" (Api DELETE "/master/project-roles/$($role.Data.data.id)").Status 204
 
 # --- resource berbasis code ---
 $dt = Api POST "/master/document-types" @{ code = "SM$run"; description = "Smoke test" }

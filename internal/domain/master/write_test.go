@@ -68,3 +68,18 @@ func TestIsInUse(t *testing.T) {
 		t.Error("error non-pg nggak boleh dianggap in-use")
 	}
 }
+
+func TestRoleCode(t *testing.T) {
+	tests := map[string]string{
+		"QA Lead":          "QA_LEAD",
+		"  scrum  master ": "SCRUM_MASTER",
+		"Dev-Ops/SRE":      "DEV_OPS_SRE",
+		"Ünit 2":           "NIT_2",
+		"!!!":              "",
+	}
+	for in, want := range tests {
+		if got := roleCode(in); got != want {
+			t.Errorf("roleCode(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

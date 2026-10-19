@@ -50,7 +50,7 @@ func (s *Service) GetLookups(ctx context.Context) (*LookupsResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp.ProjectPriorities, err = s.listGeneric(ctx, "master_project_priorities")
+	resp.ProjectPriorities, err = s.listProjectPriorities(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -233,6 +233,17 @@ func (s *Service) listTestTypes(ctx context.Context) ([]TestType, error) {
 		func(row pgx.CollectableRow) (TestType, error) {
 			var it TestType
 			err := row.Scan(&it.ID, &it.Code, &it.RequiresPrevious, &it.AllowParallel, &it.SortOrder, &it.IsActive, &it.CreatedAt, &it.UpdatedAt)
+			return it, err
+		})
+}
+
+func (s *Service) listProjectPriorities(ctx context.Context) ([]Priority, error) {
+	return collect(ctx, s.db, `
+		SELECT id, name, sort_order, is_active, created_at, updated_at, sort_order
+		FROM master_project_priorities WHERE is_active = true ORDER BY sort_order, name`,
+		func(row pgx.CollectableRow) (Priority, error) {
+			var it Priority
+			err := row.Scan(&it.ID, &it.Name, &it.SortOrder, &it.IsActive, &it.CreatedAt, &it.UpdatedAt, &it.Level)
 			return it, err
 		})
 }

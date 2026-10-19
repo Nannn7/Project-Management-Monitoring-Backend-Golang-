@@ -131,6 +131,12 @@ func (s *Service) CreateResource(ctx context.Context, resource string, body map[
 		return nil, apperr.Validation(errs)
 	}
 
+	if def.Derive != nil {
+		if derr := def.Derive(vals); len(derr) > 0 {
+			return nil, apperr.Validation(derr)
+		}
+	}
+
 	cols, ph, args := []string{}, []string{}, []any{}
 	for _, col := range slices.Sorted(maps.Keys(vals)) {
 		args = append(args, vals[col])

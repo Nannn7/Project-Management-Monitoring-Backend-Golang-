@@ -107,7 +107,7 @@ type LookupsResponse struct {
 	Subdirectorates   []Subdirectorate   `json:"subdirectorates"`
 	Vendors           []MasterItem       `json:"vendors"`
 	ProjectCategories []MasterItem       `json:"projectCategories"`
-	ProjectPriorities []MasterItem       `json:"projectPriorities"`
+	ProjectPriorities []Priority         `json:"projectPriorities"`
 	ApprovalLevels    []MasterItem       `json:"approvalLevels"`
 	ProjectRoles      []ProjectRole      `json:"projectRoles"`
 	TaskCategories    []MasterItem       `json:"taskCategories"`
@@ -127,4 +127,9 @@ type InUseReference struct {
 type InUseDetails struct {
 	References []InUseReference `json:"references"`
 	Suggestion string           `json:"suggestion"`
+}
+
+type Priority struct {
+	MasterItem
+	Level int `json:"level"`
 }
