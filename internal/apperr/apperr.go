@@ -52,11 +52,11 @@ func InUse(msg string, details any) *Error {
 }
 
 func Validation(fields map[string]string) *Error {
-	return &Error{Kind: KindValidation, Message: "Data is not valid.", Fields: fields}
+	return &Error{Kind: KindValidation, Message: "Data tidak valid.", Fields: fields}
 }
 
 func Internal(err error) *Error {
-	return &Error{Kind: KindInternal, Message: "Something went wrong on the server.", Err: err}
+	return &Error{Kind: KindInternal, Message: "Terjadi kesalahan internal.", Err: err}
 }
 
 func FromDB(err error, notFoundMsg string) error {
@@ -68,7 +68,7 @@ func FromDB(err error, notFoundMsg string) error {
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" { // unique_violation
-		return &Error{Kind: KindDuplicate, Message: "Data is already exist.", Err: err}
+		return &Error{Kind: KindDuplicate, Message: "Duplikasi data (data sudah ada).", Err: err}
 	}
 	return Internal(err)
 }
