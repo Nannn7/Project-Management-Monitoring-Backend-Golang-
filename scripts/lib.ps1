@@ -1,12 +1,3 @@
-param(
-  [string]$Base = "http://localhost:8080/api/v1",
-  [Parameter(Mandatory)][string]$Email,
-  [string]$Password = $env:SMOKE_PASSWORD
-)
-if (-not $Password) {
-  $Password = [System.Net.NetworkCredential]::new("", (Read-Host "Password" -AsSecureString)).Password
-}
-
 $script:token = $null
 $script:fail = 0
 $script:Base = "http://localhost:8080/api/v1"
@@ -20,7 +11,8 @@ function Api($method, $path, $body = $null) {
     $data = $null
     if ($r.Content) { $data = $r.Content | ConvertFrom-Json }
     return @{ Status = [int]$r.StatusCode; Data = $data; Code = $null; Err = $null }
-  } catch {
+  }
+  catch {
     $msg = $_.ErrorDetails.Message
     if (-not $msg -and $_.Exception.Response) {
       try { $msg = (New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())).ReadToEnd() } catch {}
