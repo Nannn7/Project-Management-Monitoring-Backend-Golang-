@@ -7,6 +7,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/yourorg/pmo-agi-be/internal/middleware"
 	"github.com/yourorg/pmo-agi-be/internal/response"
+	"github.com/yourorg/pmo-agi-be/internal/validation"
 )
 
 type Handler struct {
@@ -25,8 +26,8 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body is not valid.")
 		return
 	}
-	if err := h.validate.Struct(req); err != nil {
-		response.ValidationError(w, validationFields(err))
+	if fields := validation.Fields(req); fields != nil {
+		response.ValidationError(w, fields)
 		return
 	}
 
