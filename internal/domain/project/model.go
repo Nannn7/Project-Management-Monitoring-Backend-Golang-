@@ -5,26 +5,26 @@ import "time"
 // --- Project list item ---
 
 type ProjectListItem struct {
-	ID              string       `json:"id"`
-	Name            string       `json:"name"`
-	CRNumber        *string      `json:"crNumber"`
-	BRNumber        *string      `json:"brNumber"`
-	Directorate     string       `json:"directorate"`
-	DirectorateID   string       `json:"directorateId"`
-	Subdirectorate  string       `json:"subdirectorate"`
+	ID               string      `json:"id"`
+	Name             string      `json:"name"`
+	CRNumber         *string     `json:"crNumber"`
+	BRNumber         *string     `json:"brNumber"`
+	Directorate      string      `json:"directorate"`
+	DirectorateID    string      `json:"directorateId"`
+	Subdirectorate   string      `json:"subdirectorate"`
 	SubdirectorateID string      `json:"subdirectorateId"`
-	Category        string       `json:"category"`
-	CategoryID      string       `json:"categoryId"`
-	Priority        string       `json:"priority"`
-	PriorityID      string       `json:"priorityId"`
-	Status          string       `json:"status"`
-	Vendor          *string      `json:"vendor"`
-	VendorID        *string      `json:"vendorId"`
-	OverallProgress int          `json:"overallProgress"`
-	CurrentPhase    *PhaseRef    `json:"currentPhase"`
-	PMO             []MemberRef  `json:"pmo"`
-	Developers      []MemberRef  `json:"developers"`
-	Users           []MemberRef  `json:"users"`
+	Category         string      `json:"category"`
+	CategoryID       string      `json:"categoryId"`
+	Priority         string      `json:"priority"`
+	PriorityID       string      `json:"priorityId"`
+	Status           string      `json:"status"`
+	Vendor           *string     `json:"vendor"`
+	VendorID         *string     `json:"vendorId"`
+	OverallProgress  int         `json:"overallProgress"`
+	CurrentPhase     *PhaseRef   `json:"currentPhase"`
+	PMO              []MemberRef `json:"pmo"`
+	Developers       []MemberRef `json:"developers"`
+	Users            []MemberRef `json:"users"`
 }
 
 type PhaseRef struct {
@@ -39,20 +39,51 @@ type MemberRef struct {
 	IsVendor bool   `json:"isVendor,omitempty"`
 }
 
+type Member struct {
+	ID               string  `json:"id"`
+	EmployeeID       *string `json:"employeeId"`
+	Name             string  `json:"name"`
+	Role             string  `json:"role"`
+	IsPrimary        bool    `json:"isPrimary"`
+	IsVendor         bool    `json:"isVendor"`
+	Directorate      *string `json:"directorate"`
+	DirectorateID    *string `json:"directorateId"`
+	Subdirectorate   *string `json:"subdirectorate"`
+	SubdirectorateID *string `json:"subdirectorateId"`
+}
+
 // --- Project detail ---
 
 type ProjectDetail struct {
-	ProjectListItem
-	PONumber    *string      `json:"poNumber"`
-	POStatus    string       `json:"poStatus"`
-	GitRepo     string       `json:"gitRepo"`
-	HasMigration bool        `json:"hasMigration"`
-	CreatedBy   UserRef      `json:"createdBy"`
-	CreatedAt   time.Time    `json:"createdAt"`
-	UpdatedAt   time.Time    `json:"updatedAt"`
-	Permissions ProjectPerms `json:"permissions"`
-	HoldHistory []HoldRecord `json:"holdHistory"`
-	Phases      []Phase      `json:"phases"`
+	ID               string       `json:"id"`
+	Name             string       `json:"name"`
+	CRNumber         *string      `json:"crNumber"`
+	BRNumber         *string      `json:"brNumber"`
+	Directorate      string       `json:"directorate"`
+	DirectorateID    string       `json:"directorateId"`
+	Subdirectorate   string       `json:"subdirectorate"`
+	SubdirectorateID string       `json:"subdirectorateId"`
+	Category         string       `json:"category"`
+	CategoryID       string       `json:"categoryId"`
+	Priority         string       `json:"priority"`
+	PriorityID       string       `json:"priorityId"`
+	Status           string       `json:"status"`
+	Vendor           *string      `json:"vendor"`
+	VendorID         *string      `json:"vendorId"`
+	PONumber         *string      `json:"poNumber"`
+	POStatus         string       `json:"poStatus"`
+	GitRepo          string       `json:"gitRepo"`
+	HasMigration     bool         `json:"hasMigration"`
+	OverallProgress  int          `json:"overallProgress"`
+	CreatedBy        UserRef      `json:"createdBy"`
+	CreatedAt        time.Time    `json:"createdAt"`
+	UpdatedAt        time.Time    `json:"updatedAt"`
+	Permissions      ProjectPerms `json:"permissions"`
+	PMO              []Member     `json:"pmo"`
+	Developers       []Member     `json:"developers"`
+	Users            []Member     `json:"users"`
+	HoldHistory      []HoldRecord `json:"holdHistory"`
+	Phases           []Phase      `json:"phases"`
 }
 
 type UserRef struct {
@@ -130,22 +161,22 @@ type TestStage struct {
 }
 
 type Environment struct {
-	ID            string          `json:"id"`
-	Category      string          `json:"category"`
-	Label         string          `json:"label"`
-	Value         string          `json:"value"`
-	Port          *string         `json:"port,omitempty"`
-	DNS           *string         `json:"dns,omitempty"`
-	Segment       *string         `json:"segment,omitempty"`
-	IsTemplate    *bool           `json:"isTemplate,omitempty"`
-	MainBranch    *string         `json:"mainBranch,omitempty"`
-	DBName        *string         `json:"dbName,omitempty"`
-	ContainerName *string         `json:"containerName,omitempty"`
-	Note          *string         `json:"note,omitempty"`
-	CPU           *string         `json:"cpu,omitempty"`
-	Memory        *string         `json:"memory,omitempty"`
-	Storage       *string         `json:"storage,omitempty"`
-	ExtraSpecs    []ExtraSpec     `json:"extraSpecs"`
+	ID            string      `json:"id"`
+	Category      string      `json:"category"`
+	Label         string      `json:"label"`
+	Value         string      `json:"value"`
+	Port          *string     `json:"port,omitempty"`
+	DNS           *string     `json:"dns,omitempty"`
+	Segment       *string     `json:"segment,omitempty"`
+	IsTemplate    *bool       `json:"isTemplate,omitempty"`
+	MainBranch    *string     `json:"mainBranch,omitempty"`
+	DBName        *string     `json:"dbName,omitempty"`
+	ContainerName *string     `json:"containerName,omitempty"`
+	Note          *string     `json:"note,omitempty"`
+	CPU           *string     `json:"cpu,omitempty"`
+	Memory        *string     `json:"memory,omitempty"`
+	Storage       *string     `json:"storage,omitempty"`
+	ExtraSpecs    []ExtraSpec `json:"extraSpecs"`
 }
 
 type ExtraSpec struct {
@@ -189,12 +220,12 @@ type Endpoint struct {
 // --- Request bodies ---
 
 type CreateProjectRequest struct {
-	Name             string  `json:"name" validate:"required"`
+	Name             string  `json:"name" validate:"required,max=200"`
 	DirectorateID    string  `json:"directorateId" validate:"required,uuid"`
 	SubdirectorateID string  `json:"subdirectorateId" validate:"required,uuid"`
 	CategoryID       string  `json:"categoryId" validate:"required,uuid"`
 	PriorityID       string  `json:"priorityId" validate:"required,uuid"`
-	VendorID         *string `json:"vendorId"`
+	VendorID         *string `json:"vendorId" validate:"omitempty,uuid"`
 }
 
 type UpdateProjectRequest struct {

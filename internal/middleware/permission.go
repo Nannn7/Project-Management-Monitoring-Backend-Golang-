@@ -94,3 +94,8 @@ func IsAdministrator(ctx context.Context, pool *pgxpool.Pool, userID string) (bo
 	err := pool.QueryRow(ctx, query, userID).Scan(&isAdmin)
 	return isAdmin, err
 }
+
+// HasPermission: versi fungsi dari RequirePermission, untuk dipakai di service.
+func HasPermission(ctx context.Context, pool *pgxpool.Pool, userID, menuKey, action string) (bool, error) {
+	return checkPermission(ctx, pool, userID, menuKey, action)
+}

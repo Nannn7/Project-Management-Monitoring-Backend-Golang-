@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
 	"github.com/yourorg/pmo-agi-be/internal/middleware"
 	"github.com/yourorg/pmo-agi-be/internal/response"
+	"github.com/yourorg/pmo-agi-be/internal/validation"
 )
 
 type Handler struct {
@@ -49,11 +51,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 // GET /projects/{id}
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
-	projectID := chi.URLParam(r, "id")
-
-	project, err := h.svc.GetProject(r.Context(), user.UserID, projectID)
-	if err != nil || project == nil {
-		response.FromError(w, r, err) // 404 juga untuk project yang tidak boleh diakses (spec §2.3)
+	project, err := h.svc.GetProject(r.Context(), user.UserID, chi.URLParam(r, "id"))
+	if err != nil {
+		response.FromError(w, r, err) // 404 untuk "tidak ada" dan "dilarang" datang dari service
 		return
 	}
 	response.Success(w, project)
@@ -62,13 +62,22 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 // POST /projects
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
+
 	var req CreateProjectRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body is not valid.")
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+	dec.DisallowUnknownFields() // createdBy, status, dst bukan hak client
+	if err := dec.Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body tidak valid.")
 		return
 	}
-	if err := h.validate.Struct(req); err != nil {
-		response.ValidationError(w, validationFields(err))
+
+	// normalisasi sebelum validasi: "  " bukan nama, "" bukan vendor
+	req.Name = strings.TrimSpace(req.Name)
+	if req.VendorID != nil && strings.TrimSpace(*req.VendorID) == "" {
+		req.VendorID = nil
+	}
+	if fields := validation.Fields(req); fields != nil {
+		response.ValidationError(w, fields)
 		return
 	}
 
@@ -129,8 +138,8 @@ func (h *Handler) ChangeStatus(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body tidak valid.")
 		return
 	}
-	if err := h.validate.Struct(req); err != nil {
-		response.ValidationError(w, validationFields(err))
+	if fields := validation.Fields(req); fields != nil {
+		response.ValidationError(w, fields)
 		return
 	}
 

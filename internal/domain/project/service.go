@@ -40,25 +40,6 @@ func (s *Service) ListProjects(ctx context.Context, userID, q, status, priorityI
 	return []ProjectListItem{}, 0, nil
 }
 
-// GetProject — GET /projects/{id}
-func (s *Service) GetProject(ctx context.Context, userID, projectID string) (*ProjectDetail, error) {
-	// TODO: implementasi query detail project dengan semua relasi
-	return nil, apperr.NotImplemented("TODO: GET /projects/{id}")
-}
-
-// CreateProject — POST /projects (dengan Fase 1 default, dalam 1 transaksi)
-func (s *Service) CreateProject(ctx context.Context, userID string, req CreateProjectRequest) (*ProjectDetail, error) {
-
-	// TODO: implementasi
-	// 1. Validasi subdit milik direktorat
-	// 2. INSERT INTO projects
-	// 3. INSERT INTO phases (Fase 1 default)
-	// 4. INSERT INTO audit_logs
-	// 5. tx.Commit()
-
-	return nil, apperr.NotImplemented("TODO: POST /projects")
-}
-
 // UpdateProject — PATCH /projects/{id}
 func (s *Service) UpdateProject(ctx context.Context, userID, projectID string, req UpdateProjectRequest) (*ProjectDetail, error) {
 	// TODO: implementasi
