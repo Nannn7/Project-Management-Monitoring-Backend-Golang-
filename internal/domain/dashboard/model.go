@@ -3,11 +3,11 @@ package dashboard
 import "time"
 
 type DashboardResponse struct {
-	Summary            Summary            `json:"summary"`
-	StatusDistribution []StatusCount      `json:"statusDistribution"`
-	ProgressPerProject []ProjectProgress  `json:"progressPerProject"`
-	Projects           []ProjectRow       `json:"projects"`
-	UpcomingMeetings   []MeetingRow       `json:"upcomingMeetings"`
+	Summary            Summary           `json:"summary"`
+	StatusDistribution []StatusCount     `json:"statusDistribution"`
+	ProgressPerProject []ProjectProgress `json:"progressPerProject"`
+	Projects           []ProjectRow      `json:"projects"`
+	UpcomingMeetings   []MeetingRow      `json:"upcomingMeetings"`
 }
 
 type Summary struct {
@@ -30,13 +30,13 @@ type ProjectProgress struct {
 }
 
 type ProjectRow struct {
-	ID             string  `json:"id"`
-	Name           string  `json:"name"`
-	Directorate    string  `json:"directorate"`
-	Subdirectorate string  `json:"subdirectorate"`
-	Status         string  `json:"status"`
-	CurrentPhase   *PhaseRef `json:"currentPhase"`
-	OverallProgress int    `json:"overallProgress"`
+	ID              string    `json:"id"`
+	Name            string    `json:"name"`
+	Directorate     string    `json:"directorate"`
+	Subdirectorate  string    `json:"subdirectorate"`
+	Status          string    `json:"status"`
+	CurrentPhase    *PhaseRef `json:"currentPhase"`
+	OverallProgress int       `json:"overallProgress"`
 }
 
 type PhaseRef struct {

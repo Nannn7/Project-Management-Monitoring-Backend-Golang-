@@ -23,12 +23,12 @@ type LoginResponse struct {
 }
 
 type UserInfo struct {
-	ID          string                 `json:"id"`
-	Name        string                 `json:"name"`
-	Email       string                 `json:"email"`
-	Roles       []string               `json:"roles"`
-	IsAdministrator bool              `json:"isAdministrator"`
-	Permissions map[string]PermMap    `json:"permissions"`
+	ID              string             `json:"id"`
+	Name            string             `json:"name"`
+	Email           string             `json:"email"`
+	Roles           []string           `json:"roles"`
+	IsAdministrator bool               `json:"isAdministrator"`
+	Permissions     map[string]PermMap `json:"permissions"`
 }
 
 type PermMap struct {

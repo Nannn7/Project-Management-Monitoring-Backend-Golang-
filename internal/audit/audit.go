@@ -21,7 +21,7 @@ type Entry struct {
 // Record menulis satu baris per entry. Panggil dengan tx yang sama dengan perubahan datanya.
 func Record(ctx context.Context, q db.Querier, entries ...Entry) error {
 	for _, e := range entries {
-				_, err := q.Exec(ctx, `
+		_, err := q.Exec(ctx, `
 			INSERT INTO audit_logs
 			  (project_id, entity_type, entity_id, entity_label, field, old_value, new_value, changed_by, changed_at)
 			VALUES (NULLIF($1,'')::uuid, $2, NULLIF($3,'')::uuid, $4, $5, $6, $7, $8, clock_timestamp())`,
