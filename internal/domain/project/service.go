@@ -32,14 +32,6 @@ func NewService(db *pgxpool.Pool) *Service {
 	return &Service{db: db}
 }
 
-// ListProjects — GET /projects
-func (s *Service) ListProjects(ctx context.Context, userID, q, status, priorityID, categoryID, directorateID, sort string, page, pageSize int) ([]ProjectListItem, int, error) {
-	// TODO: implementasi full query dengan filter + pagination
-	// Menggunakan scopePredicate untuk membatasi akses
-	_ = scopePredicate
-	return []ProjectListItem{}, 0, nil
-}
-
 // UpdateProject — PATCH /projects/{id}
 func (s *Service) UpdateProject(ctx context.Context, userID, projectID string, req UpdateProjectRequest) (*ProjectDetail, error) {
 	// TODO: implementasi

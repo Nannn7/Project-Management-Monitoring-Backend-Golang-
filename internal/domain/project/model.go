@@ -36,7 +36,7 @@ type PhaseRef struct {
 type MemberRef struct {
 	ID       string `json:"id"`
 	Name     string `json:"name"`
-	IsVendor bool   `json:"isVendor,omitempty"`
+	IsVendor *bool  `json:"isVendor,omitempty"`
 }
 
 type Member struct {

@@ -25,14 +25,10 @@ func NewHandler(svc *Service) *Handler {
 // GET /projects
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
-	q := r.URL.Query().Get("q")
-	status := r.URL.Query().Get("status")
-	priorityID := r.URL.Query().Get("priorityId")
-	categoryID := r.URL.Query().Get("categoryId")
-	directorateID := r.URL.Query().Get("directorateId")
-	sort := r.URL.Query().Get("sort")
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	pageSize, _ := strconv.Atoi(r.URL.Query().Get("pageSize"))
+	q := r.URL.Query()
+
+	page, _ := strconv.Atoi(q.Get("page"))
+	pageSize, _ := strconv.Atoi(q.Get("pageSize"))
 	if page < 1 {
 		page = 1
 	}
@@ -40,7 +36,16 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		pageSize = 10
 	}
 
-	projects, total, err := h.svc.ListProjects(r.Context(), user.UserID, q, status, priorityID, categoryID, directorateID, sort, page, pageSize)
+	projects, total, err := h.svc.ListProjects(r.Context(), user.UserID, ListParams{
+		Q:             q.Get("q"),
+		Statuses:      q["status"],
+		PriorityID:    q.Get("priorityId"),
+		CategoryID:    q.Get("categoryId"),
+		DirectorateID: q.Get("directorateId"),
+		Sort:          q.Get("sort"),
+		Page:          page,
+		PageSize:      pageSize,
+	})
 	if err != nil {
 		response.FromError(w, r, err)
 		return

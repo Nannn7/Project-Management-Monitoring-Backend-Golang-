@@ -11,6 +11,11 @@ import (
 )
 
 var uuidRe = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+func LikePattern(q string) string {
+	return "%" + likeEscaper.Replace(q) + "%"
+}
 
 func IsUUID(s string) bool { return uuidRe.MatchString(s) }
 
