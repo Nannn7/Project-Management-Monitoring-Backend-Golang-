@@ -105,6 +105,10 @@ Check "  canEdit" $p2.permissions.canEdit $true
 Check "  canDelete (PMO tidak punya)" $p2.permissions.canDelete $false
 Check "pmo: get project sendiri" (Api GET "/projects/$($p2.id)").Status 200
 Check "pmo: get project milik admin -> 404 (scope)" (Api GET "/projects/$projA").Status 404
+$l = Api GET "/projects?q=$run"
+Check "pmo: list hanya project sendiri" $l.Data.meta.total 1
+Check "  id = project miliknya" @($l.Data.data)[0].id $p2.id
+Check "  pmo list memuat anggota PMO" @(@($l.Data.data)[0].pmo).Count 1
 Check "pmo: DELETE project -> 403 (tanpa projects.delete)" (Api DELETE "/projects/$($p2.id)").Status 403
 Check "pmo: master-data -> 403" (Api GET "/master/vendors").Status 403
 Check "pmo: lookups -> 200" (Api GET "/lookups").Status 200
@@ -113,11 +117,67 @@ Check "pmo: lookups -> 200" (Api GET "/lookups").Status 200
 LoginAs $Pmo2Email $DevPassword
 Check "pmo2: project milik pmo1 -> 404" (Api GET "/projects/$($p2.id)").Status 404
 Check "pmo2: project milik admin -> 404" (Api GET "/projects/$projA").Status 404
-Check "pmo2: create project sendiri" (Api POST "/projects" (PBody "SMOKE Project C $run" $subA.id)).Status 201
+# Check "pmo2: create project sendiri" (Api POST "/projects" (PBody "SMOKE Project C $run" $subA.id)).Status 201
+$c3 = Api POST "/projects" (PBody "SMOKE Project C $run" $subA.id)
+Check "pmo2: create project sendiri" $c3.Status 201
+Check "pmo2: list hanya project sendiri" (Api GET "/projects?q=$run").Data.meta.total 1
 
 # ================= ADMIN lagi =================
 LoginAs $AdminEmail $AdminPassword
 Check "admin: lihat project milik pmo1 (bypass)" (Api GET "/projects/$($p2.id)").Status 200
+
+# ===== LIST: admin lihat semua (A, V, B, C) =====
+# (jangan pakai nama variabel $base: PowerShell tidak case-sensitive, bentrok dengan param $Base)
+$listQ = "q=$run&pageSize=100"
+function Names($r) { @($r.Data.data) | ForEach-Object { $_.name } }
+
+$all = Api GET "/projects?$listQ"
+Check "list: admin lihat 4 project" $all.Data.meta.total 4
+$it = @($all.Data.data)[0]
+Check "  item: currentPhase Fase 1" $it.currentPhase.name "Fase 1"
+Check "  item: currentPhase stage" $it.currentPhase.stage "Dokumen"
+Check "  item: pmo array (bukan null)" ($null -ne $it.pmo) $true
+Check "  item: developers array" ($null -ne $it.developers) $true
+Check "  item: users array" ($null -ne $it.users) $true
+Check "  item: priority terisi" ([string]::IsNullOrEmpty($it.priority)) $false
+Check "  item: overallProgress 0" $it.overallProgress 0
+
+# filter
+Check "list: status Active+Hold (berulang)" (Api GET "/projects?$listQ&status=Active&status=Hold").Data.meta.total 4
+Check "list: status Cancelled" (Api GET "/projects?$listQ&status=Cancelled").Data.meta.total 0
+$bad = Api GET "/projects?status=Foo"
+Check "list: status ngawur" $bad.Status 422
+Check "  fields.status" ($null -ne $bad.Err.fields.status) $true
+Check "list: directorateId" (Api GET "/projects?$listQ&directorateId=$($dirA.id)").Data.meta.total 4
+Check "list: directorateId lain" (Api GET "/projects?$listQ&directorateId=$($dirB.id)").Data.meta.total 0
+Check "list: directorateId bukan uuid" (Api GET "/projects?directorateId=abc").Status 422
+Check "list: priorityId" (Api GET "/projects?$listQ&priorityId=$($pri.id)").Data.meta.total 4
+Check "list: categoryId" (Api GET "/projects?$listQ&categoryId=$($cat.id)").Data.meta.total 4
+
+# pencarian
+$byMember = Api GET "/projects?q=$([uri]::EscapeDataString($me.name))&pageSize=100"
+Check "list: cari lewat nama anggota PMO" @($byMember.Data.data | Where-Object { $_.id -eq $p2.id }).Count 1
+Check "list: q=% tidak dianggap wildcard" (Api GET "/projects?q=%25&pageSize=100").Data.meta.total 0
+
+# sort
+Check "list: default = terbaru dulu (C)" (Names (Api GET "/projects?$listQ"))[0] "SMOKE Project C $run"
+Check "list: sort=createdAt (A)" (Names (Api GET "/projects?$listQ&sort=createdAt"))[0] "SMOKE Project A $run"
+Check "list: sort=name (A)" (Names (Api GET "/projects?$listQ&sort=name"))[0] "SMOKE Project A $run"
+Check "list: sort=-name (V)" (Names (Api GET "/projects?$listQ&sort=-name"))[0] "SMOKE Project V $run"
+Check "list: sort=-priority" (Api GET "/projects?$listQ&sort=-priority").Status 200
+Check "list: sort=overallProgress" (Api GET "/projects?$listQ&sort=overallProgress").Status 200
+Check "list: sort ngawur" (Api GET "/projects?sort=ngawur").Status 422
+
+# pagination
+$pg = Api GET "/projects?q=$run&sort=name&pageSize=2&page=2"
+Check "list: halaman 2 berisi 2 item" @($pg.Data.data).Count 2
+Check "  meta.total" $pg.Data.meta.total 4
+Check "  meta.page" $pg.Data.meta.page 2
+Check "  meta.pageSize" $pg.Data.meta.pageSize 2
+Check "  item pertama halaman 2 = C" @($pg.Data.data)[0].name "SMOKE Project C $run"
+$far = Api GET "/projects?q=$run&page=99"
+Check "list: halaman kelewat -> data [] bukan null" (($null -ne $far.Data.data) -and (@($far.Data.data).Count -eq 0)) $true
+Check "  total tetap 4" $far.Data.meta.total 4
 
 Write-Host ""
 if ($script:fail -gt 0) { Write-Host "$($script:fail) tes GAGAL" -ForegroundColor Red; exit 1 }
