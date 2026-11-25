@@ -1,10 +1,7 @@
 package project
 
 import (
-	"context"
-
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/yourorg/pmo-agi-be/internal/apperr"
 )
 
 // scopePredicate — predikat SQL scope project sesuai spec §2.4
@@ -30,28 +27,4 @@ type Service struct {
 
 func NewService(db *pgxpool.Pool) *Service {
 	return &Service{db: db}
-}
-
-// UpdateProject — PATCH /projects/{id}
-func (s *Service) UpdateProject(ctx context.Context, userID, projectID string, req UpdateProjectRequest) (*ProjectDetail, error) {
-	// TODO: implementasi
-	// - Tolak field status dengan 422
-	// - Validasi scope project
-	// - Tulis audit_logs per field yang berubah
-	return nil, apperr.NotImplemented("TODO: PATCH /projects/{id}")
-}
-
-// DeleteProject — DELETE /projects/{id} (soft delete)
-func (s *Service) DeleteProject(ctx context.Context, userID, projectID string) error {
-	// TODO: soft delete - set deleted_at = now()
-	return apperr.NotImplemented("TODO: DELETE /projects/{id}")
-}
-
-// ChangeStatus — POST /projects/{id}/status
-func (s *Service) ChangeStatus(ctx context.Context, userID, projectID string, req StatusChangeRequest) (map[string]any, error) {
-	// TODO:
-	// - Sama dengan status sekarang → 409 INVALID_STATE
-	// - Ke Hold → reason wajib, INSERT project_hold_history
-	// - Keluar dari Hold → tutup hold aktif (resumedAt, resumedBy)
-	return nil, apperr.NotImplemented("TODO: POST /projects/{id}/status")
 }

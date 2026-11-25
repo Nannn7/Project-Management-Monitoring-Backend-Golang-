@@ -40,3 +40,26 @@ func TestMapProjectWriteErr(t *testing.T) {
 		t.Error("apperr harus diteruskan apa adanya")
 	}
 }
+
+func TestMapProjectWriteErrDuplicates(t *testing.T) {
+	tests := []struct{ constraint, field string }{
+		{"ux_projects_cr", "crNumber"},
+		{"ux_projects_br", "brNumber"},
+	}
+	for _, tt := range tests {
+		err := mapProjectWriteErr(&pgconn.PgError{Code: "23505", ConstraintName: tt.constraint})
+		var ae *apperr.Error
+		if !errors.As(err, &ae) || ae.Kind != apperr.KindDuplicate {
+			t.Fatalf("%s: bukan DUPLICATE: %v", tt.constraint, err)
+		}
+		if _, ok := ae.Fields[tt.field]; !ok {
+			t.Errorf("%s: harusnya fields.%s, dapat %v", tt.constraint, tt.field, ae.Fields)
+		}
+	}
+	// unique lain yang tidak dikenal = bug server (500), bukan salah client
+	err := mapProjectWriteErr(&pgconn.PgError{Code: "23505", ConstraintName: "ux_lain"})
+	var ae *apperr.Error
+	if !errors.As(err, &ae) || ae.Kind != apperr.KindInternal {
+		t.Errorf("unique tak dikenal harusnya Internal, dapat %v", err)
+	}
+}

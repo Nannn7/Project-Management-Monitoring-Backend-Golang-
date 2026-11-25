@@ -94,31 +94,53 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	response.Created(w, project)
 }
 
+// decodeObject: body JSON object -> map, maksimal 1MB.
+func decodeObject(w http.ResponseWriter, r *http.Request) (map[string]json.RawMessage, bool) {
+	var body map[string]json.RawMessage
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&body); err != nil || body == nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body tidak valid.")
+		return nil, false
+	}
+	return body, true
+}
+
 // PATCH /projects/{id}
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUser(r)
-	projectID := chi.URLParam(r, "id")
-
-	var req UpdateProjectRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body tidak valid.")
+	body, ok := decodeObject(w, r)
+	if !ok {
 		return
 	}
-
-	// Tolak field status — sesuai spec §6 PATCH /projects/{id}
-	if req.Status != nil {
-		response.ValidationError(w, map[string]string{
-			"status": "Gunakan POST /projects/{id}/status untuk mengubah status.",
-		})
-		return
-	}
-
-	project, err := h.svc.UpdateProject(r.Context(), user.UserID, projectID, req)
+	project, err := h.svc.UpdateProject(r.Context(), user.UserID, chi.URLParam(r, "id"), body)
 	if err != nil {
 		response.FromError(w, r, err)
 		return
 	}
 	response.Success(w, project)
+}
+
+// POST /projects/{id}/status
+func (h *Handler) ChangeStatus(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUser(r)
+
+	var req StatusChangeRequest
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body tidak valid.")
+		return
+	}
+	if fields := validation.Fields(req); fields != nil {
+		response.ValidationError(w, fields)
+		return
+	}
+
+	result, err := h.svc.ChangeStatus(r.Context(), user.UserID, chi.URLParam(r, "id"), req)
+	if err != nil {
+		response.FromError(w, r, err)
+		return
+	}
+	response.Success(w, result)
 }
 
 // DELETE /projects/{id}
@@ -131,29 +153,6 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.NoContent(w)
-}
-
-// POST /projects/{id}/status
-func (h *Handler) ChangeStatus(w http.ResponseWriter, r *http.Request) {
-	user := middleware.GetUser(r)
-	projectID := chi.URLParam(r, "id")
-
-	var req StatusChangeRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.Error(w, http.StatusBadRequest, "BAD_REQUEST", "Body tidak valid.")
-		return
-	}
-	if fields := validation.Fields(req); fields != nil {
-		response.ValidationError(w, fields)
-		return
-	}
-
-	result, err := h.svc.ChangeStatus(r.Context(), user.UserID, projectID, req)
-	if err != nil {
-		response.FromError(w, r, err)
-		return
-	}
-	response.Success(w, result)
 }
 
 // --- Stub handlers (akan diimplementasi di Phase 4) ---

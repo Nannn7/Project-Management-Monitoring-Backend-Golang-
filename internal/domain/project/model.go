@@ -228,20 +228,10 @@ type CreateProjectRequest struct {
 	VendorID         *string `json:"vendorId" validate:"omitempty,uuid"`
 }
 
-type UpdateProjectRequest struct {
-	Name             *string `json:"name"`
-	CRNumber         *string `json:"crNumber"`
-	BRNumber         *string `json:"brNumber"`
-	DirectorateID    *string `json:"directorateId"`
-	SubdirectorateID *string `json:"subdirectorateId"`
-	CategoryID       *string `json:"categoryId"`
-	PriorityID       *string `json:"priorityId"`
-	VendorID         *string `json:"vendorId"`
-	PONumber         *string `json:"poNumber"`
-	POStatus         *string `json:"poStatus"`
-	GitRepo          *string `json:"gitRepo"`
-	HasMigration     *bool   `json:"hasMigration"`
-	Status           *string `json:"status"` // akan ditolak dengan 422
+type StatusChangeResult struct {
+	ID          string       `json:"id"`
+	Status      string       `json:"status"`
+	HoldHistory []HoldRecord `json:"holdHistory"`
 }
 
 type StatusChangeRequest struct {

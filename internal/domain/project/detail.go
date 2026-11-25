@@ -47,7 +47,7 @@ const holdSQL = `
 	JOIN app_users hb ON hb.id = h.held_by
 	LEFT JOIN app_users rb ON rb.id = h.resumed_by
 	WHERE h.project_id = $1
-	ORDER BY h.held_at DESC, (h.resumed_at IS NULL) DESC, h.id`
+	ORDER BY h.held_at DESC, h.created_at DESC, h.id`
 
 const phasesSQL = `
 	SELECT id::text, name, stage, sort_order,
@@ -111,9 +111,9 @@ func (s *Service) loadDetail(ctx context.Context, q db.Querier, userID, projectI
 	}
 
 	// --- riwayat hold ---
-	rows, err = q.Query(ctx, holdSQL, projectID)
+	d.HoldHistory, err = s.loadHoldHistory(ctx, q, projectID)
 	if err != nil {
-		return nil, apperr.Internal(err)
+		return nil, err
 	}
 	d.HoldHistory, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (HoldRecord, error) {
 		var h HoldRecord
@@ -154,6 +154,25 @@ func (s *Service) loadDetail(ctx context.Context, q db.Querier, userID, projectI
 		d.Phases = []Phase{}
 	}
 	return d, nil
+}
+
+func (s *Service) loadHoldHistory(ctx context.Context, q db.Querier, projectID string) ([]HoldRecord, error) {
+	rows, err := q.Query(ctx, holdSQL, projectID)
+	if err != nil {
+		return nil, apperr.Internal(err)
+	}
+	hist, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (HoldRecord, error) {
+		var h HoldRecord
+		err := row.Scan(&h.ID, &h.HeldAt, &h.Reason, &h.HeldBy, &h.ResumedAt, &h.ResumedBy)
+		return h, err
+	})
+	if err != nil {
+		return nil, apperr.Internal(err)
+	}
+	if hist == nil {
+		hist = []HoldRecord{}
+	}
+	return hist, nil
 }
 
 // fillPermissions: canEdit = punya projects.edit (scope sudah lolos karena loadDetail berhasil);

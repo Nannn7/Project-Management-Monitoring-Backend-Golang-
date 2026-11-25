@@ -110,22 +110,34 @@ func (s *Service) CreateProject(ctx context.Context, userID string, req CreatePr
 func mapProjectWriteErr(err error) error {
 	var ae *apperr.Error
 	if errors.As(err, &ae) {
-		return err // sudah apperr (mis. dari loadDetail): teruskan apa adanya
+		return err // sudah apperr: teruskan apa adanya
 	}
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23503" { // foreign_key_violation saat INSERT
-		c := pgErr.ConstraintName
-		switch {
-		case strings.Contains(c, "subdirectorate"): // cek sebelum "directorate": nama FK komposit memuat keduanya
-			return apperr.Validation(map[string]string{"subdirectorateId": "Subdit bukan milik direktorat ini"})
-		case strings.Contains(c, "directorate"):
-			return apperr.Validation(map[string]string{"directorateId": "Direktorat tidak ditemukan"})
-		case strings.Contains(c, "category"):
-			return apperr.Validation(map[string]string{"categoryId": "Kategori tidak ditemukan"})
-		case strings.Contains(c, "priority"):
-			return apperr.Validation(map[string]string{"priorityId": "Priority tidak ditemukan"})
-		case strings.Contains(c, "vendor"):
-			return apperr.Validation(map[string]string{"vendorId": "Vendor tidak ditemukan"})
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "23505": // unique_violation
+			switch {
+			case strings.Contains(pgErr.ConstraintName, "_cr"):
+				return &apperr.Error{Kind: apperr.KindDuplicate, Message: "Nomor CR sudah dipakai project lain.",
+					Fields: map[string]string{"crNumber": "Sudah dipakai project lain"}}
+			case strings.Contains(pgErr.ConstraintName, "_br"):
+				return &apperr.Error{Kind: apperr.KindDuplicate, Message: "Nomor BR sudah dipakai project lain.",
+					Fields: map[string]string{"brNumber": "Sudah dipakai project lain"}}
+			}
+		case "23503": // foreign_key_violation
+			c := pgErr.ConstraintName
+			switch {
+			case strings.Contains(c, "subdirectorate"): // cek sebelum "directorate": FK komposit memuat keduanya
+				return apperr.Validation(map[string]string{"subdirectorateId": "Subdit bukan milik direktorat ini"})
+			case strings.Contains(c, "directorate"):
+				return apperr.Validation(map[string]string{"directorateId": "Direktorat tidak ditemukan"})
+			case strings.Contains(c, "category"):
+				return apperr.Validation(map[string]string{"categoryId": "Kategori tidak ditemukan"})
+			case strings.Contains(c, "priority"):
+				return apperr.Validation(map[string]string{"priorityId": "Priority tidak ditemukan"})
+			case strings.Contains(c, "vendor"):
+				return apperr.Validation(map[string]string{"vendorId": "Vendor tidak ditemukan"})
+			}
 		}
 	}
 	return apperr.Internal(err)
