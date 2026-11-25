@@ -63,6 +63,10 @@ func message(fe validator.FieldError) string {
 			unit = "item"
 		}
 		return fmt.Sprintf("Minimal %s %s", fe.Param(), unit)
+	case "oneof":
+		return "Harus salah satu dari: " + strings.ReplaceAll(fe.Param(), " ", ", ")
+	case "max":
+		return fmt.Sprintf("Maksimal %s karakter", fe.Param())
 	default:
 		return "Data tidak valid"
 	}

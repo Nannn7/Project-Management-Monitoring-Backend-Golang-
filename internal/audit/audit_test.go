@@ -49,3 +49,25 @@ func TestDiff(t *testing.T) {
 		})
 	}
 }
+
+func TestEqual(t *testing.T) {
+	var nilStr *string
+	a := "x"
+	tests := []struct {
+		name string
+		a, b any
+		want bool
+	}{
+		{"string sama", "x", "x", true},
+		{"pointer vs value", &a, "x", true},
+		{"beda", "x", "y", false},
+		{"nil vs nil pointer", nil, nilStr, true},
+		{"nil vs nilai", nil, "x", false},
+		{"bool", true, true, true},
+	}
+	for _, tt := range tests {
+		if got := Equal(tt.a, tt.b); got != tt.want {
+			t.Errorf("%s: Equal = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}

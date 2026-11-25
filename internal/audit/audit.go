@@ -33,15 +33,19 @@ func Record(ctx context.Context, q db.Querier, entries ...Entry) error {
 	return nil
 }
 
+func Equal(a, b any) bool {
+	x, y := str(a), str(b)
+	return (x == nil && y == nil) || (x != nil && y != nil && *x == *y)
+}
+
 // Diff mengumpulkan perubahan field. Add hanya mencatat kalau nilainya benar-benar beda.
 type Diff struct{ changes []Entry }
 
 func (d *Diff) Add(field string, oldV, newV any) {
-	o, n := str(oldV), str(newV)
-	if (o == nil && n == nil) || (o != nil && n != nil && *o == *n) {
+	if Equal(oldV, newV) {
 		return
 	}
-	d.changes = append(d.changes, Entry{Field: field, Old: o, New: n})
+	d.changes = append(d.changes, Entry{Field: field, Old: str(oldV), New: str(newV)})
 }
 
 func (d *Diff) Empty() bool { return len(d.changes) == 0 }
